@@ -5,6 +5,7 @@ pipeline {
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key')   // Store in Jenkins credentials
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION    = 'us-east-2'
+        DEPLOYER_PUBLIC_KEY = credentials('deployer-public-key') 
     }
 
     stages {
