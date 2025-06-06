@@ -29,7 +29,7 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                sh 'terraform apply -auto-approve'
+                sh "terraform apply -auto-approve -var='deployer_public_key=${DEPLOYER_PUBLIC_KEY}'"
             }
         }
     }
