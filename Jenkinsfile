@@ -29,7 +29,6 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                input "Apply Terraform changes?"
                 sh 'terraform apply -auto-approve'
             }
         }
