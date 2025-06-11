@@ -12,15 +12,21 @@ client = openai.OpenAI(api_key=api_key)
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
 
-Below is a Jenkins build log. Review the errors and suggest how to fix them.
+Below is a Jenkins build log. Analyze the error and suggest 2–3 possible solutions, if any.
 
 LOG:
 ----------------------------------------
 {log_content}
 ----------------------------------------
 
-Only return helpful, brief suggestions. Start your answer with this exact tag:
 >>> Suggestion:
+- If you can't identify the problem, say:
+We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com
+
+- Otherwise, list the most likely fixes like this:
+1. First fix idea...
+2. Second fix idea...
+3. (Optional) Third fix idea...
 """
 
 def get_suggestion(log_text):
@@ -28,24 +34,11 @@ def get_suggestion(log_text):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=300,
+        max_tokens=500,
         temperature=0.4
     )
     return response.choices[0].message.content.strip()
 
-
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python send_to_chatgpt.py <log_file>")
-        sys.exit(1)
+    if len(
 
-    log_path = sys.argv[1]
-    if not os.path.isfile(log_path):
-        print(f"Log file not found: {log_path}")
-        sys.exit(1)
-
-    with open(log_path, 'r') as f:
-        log_data = f.read()
-
-    suggestion = get_suggestion(log_data)
-    print(suggestion)
