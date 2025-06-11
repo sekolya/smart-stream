@@ -2,6 +2,7 @@ import sys
 import os
 import openai
 
+# Load API key from environment
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     print("Missing OPENAI_API_KEY environment variable")
@@ -9,10 +10,11 @@ if not api_key:
 
 client = openai.OpenAI(api_key=api_key)
 
+# Prompt template with fallback instruction
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
 
-Below is a Jenkins build log. Analyze the error and suggest 2–3 possible solutions, if any.
+Below is a Jenkins build log. Analyze the error and suggest 2–3 possible solutions in a numbered list.
 
 LOG:
 ----------------------------------------
@@ -20,13 +22,9 @@ LOG:
 ----------------------------------------
 
 >>> Suggestion:
-- If you can't identify the problem, say:
-We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com
-
-- Otherwise, list the most likely fixes like this:
-1. First fix idea...
-2. Second fix idea...
-3. (Optional) Third fix idea...
+- If you can identify the root cause, suggest specific fixes.
+- If you're uncertain or no actionable solution exists, reply:
+>>> Suggestion: We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com
 """
 
 def get_suggestion(log_text):
@@ -34,7 +32,7 @@ def get_suggestion(log_text):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=500,
+        max_tokens=300,
         temperature=0.4
     )
     return response.choices[0].message.content.strip()
