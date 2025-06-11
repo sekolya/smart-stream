@@ -40,5 +40,17 @@ def get_suggestion(log_text):
     return response.choices[0].message.content.strip()
 
 if __name__ == "__main__":
-    if len(
+    if len(sys.argv) != 2:
+        print("Usage: python send_to_chatgpt.py <log_file>")
+        sys.exit(1)
 
+    log_path = sys.argv[1]
+    if not os.path.isfile(log_path):
+        print(f"Log file not found: {log_path}")
+        sys.exit(1)
+
+    with open(log_path, 'r') as f:
+        log_data = f.read()
+
+    suggestion = get_suggestion(log_data)
+    print(suggestion)
