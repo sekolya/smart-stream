@@ -1,33 +1,32 @@
-import boto3
-import json
 import sys
+import openai
 import os
 
-def send_to_sagemaker(log_file):
-    if not os.path.isfile(log_file):
-        print(f"Error: File '{log_file}' does not exist.")
-        return
+openai.api_key = os.environ['OPENAI_API_KEY']  # Set this securely via Jenkins credentials
 
-    try:
-        with open(log_file, encoding='utf-8') as f:
-            log = f.read()[:2000]
+PROMPT_TEMPLATE = """
+You are an assistant that helps developers debug their CI/CD pipeline errors.
 
-        client = boto3.client('sagemaker-runtime', region_name='us-east-2')
-        response = client.invoke_endpoint(
-            EndpointName='log-analyzer-endpoint',
-            ContentType='application/json',
-            Body=json.dumps({'inputs': log})
-        )
+Here is the Jenkins build log:
+-------------------------------
+{log_content}
+-------------------------------
 
-        print("SageMaker Response:")
-        print(response['Body'].read().decode('utf-8'))
+Provide a suggestion to fix the issue. Start your answer with >>> Suggestion:
+"""
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+def get_suggestion(log_text):
+    prompt = PROMPT_TEMPLATE.format(log_content=log_text)
+    response = openai.ChatCompletion.create(
+        model="gpt-4",  # or "gpt-4o" if available
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
+        temperature=0.3,
+    )
+    return response.choices[0].message.content.strip()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python script.py <log_file>")
-    else:
-        send_to_sagemaker(sys.argv[1])
+    with open(sys.argv[1], "r") as f:
+        logs = f.read()
 
+    print(get_suggestion(logs))
