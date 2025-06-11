@@ -4,11 +4,11 @@ import sys
 import os
 
 # Get environment variables from Jenkins
-ENDPOINT_NAME = os.getenv("SAGEMAKER_ENDPOINT")
-REGION_NAME = os.getenv("AWS_REGION", "us-east-1")
+ENDPOINT_NAME = os.getenv("log-analyzer-endpoint")
+REGION_NAME = os.getenv("AWS_REGION", "us-east-2")
 
 # Initialize the SageMaker runtime client
-runtime = boto3.client("sagemaker-runtime", region_name=REGION_NAME)
+runtime = boto3.client("sagemaker-runtime", region_name='us-east-2')
 
 def query_sagemaker_endpoint(prompt):
     response = runtime.invoke_endpoint(
