@@ -1,14 +1,13 @@
-import openai
 import sys
 import os
+import openai
 
-# Make sure the API key is set in the environment
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     print("Missing OPENAI_API_KEY environment variable")
     sys.exit(1)
 
-openai.api_key = api_key
+client = openai.OpenAI(api_key=api_key)
 
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
@@ -26,9 +25,8 @@ Only return helpful, brief suggestions. Start your answer with this exact tag:
 
 def get_suggestion(log_text):
     prompt = PROMPT_TEMPLATE.format(log_content=log_text)
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4",  # or "gpt-4o" if you're on GPT-4 Omni
+    response = client.chat.completions.create(
+        model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=300,
         temperature=0.4
