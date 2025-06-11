@@ -2,10 +2,10 @@ pipeline {
     agent { label 'master' }
 
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')        // Stored in Jenkins credentials
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION    = 'us-east-2'
-        DEPLOYER_PUBLIC_KEY   = credentials('deployer-public-key') 
+        DEPLOYER_PUBLIC_KEY   = credentials('deployer-public-key')
     }
 
     stages {
@@ -33,30 +33,38 @@ pipeline {
             }
         }
 
-        stage('Send to SageMaker') {
+        stage('AI Suggestion (ChatGPT)') {
             steps {
-                sh '''
-                    python3 -m venv sm-env
-                    . sm-env/bin/activate
-                    pip install boto3
+                withCredentials([string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY')]) {
+                    sh '''
+                        python3 -m venv sm-env
+                        . sm-env/bin/activate
+                        pip install openai
 
-                    # Fetch console log and send to SageMaker
-                    curl -s http://3.148.224.153:8080/job/${JOB_NAME}/${BUILD_NUMBER}/consoleText > build.log
-                    python send_to_sagemaker.py build.log > sagemaker_output.txt
+                        # Fetch console log
+                        curl -s http://3.20.253.231:8080/job/${JOB_NAME}/${BUILD_NUMBER}/consoleText > build.log
 
-                    # Extract suggestion
-                    grep ">>> Suggestion:" sagemaker_output.txt || echo ">>> Suggestion: No suggestion found." > suggestion.txt
+                        # Send to ChatGPT
+                        export OPENAI_API_KEY=$OPENAI_API_KEY
+                        python send_to_chatgpt.py build.log > chatgpt_output.txt
 
-                    # Archive results
-                    mkdir -p artifacts
-                    cp sagemaker_output.txt artifacts/
-                    cp suggestion.txt artifacts/
+                        # Extract suggestion
+                        grep ">>> Suggestion:" chatgpt_output.txt || echo ">>> Suggestion: No suggestion found." > suggestion.txt
 
-                    # Create HTML summary
-                    echo "<html><body><h2>SmartStream Suggestion</h2><pre>" > artifacts/suggestion.html
-                    cat suggestion.txt >> artifacts/suggestion.html
-                    echo "</pre></body></html>" >> artifacts/suggestion.html
-                '''
+                        mkdir -p artifacts
+                        cp chatgpt_output.txt artifacts/
+                        cp suggestion.txt artifacts/
+                        cp resources/robot.png artifacts/
+
+                        # Create HTML report
+                        echo "<html><body style='font-family: Arial, sans-serif; text-align: center;'>" > artifacts/suggestion.html
+                        echo "<img src='robot.png' alt='SmartStream Bot' style='height: 40px; margin-bottom: 20px;'/>" >> artifacts/suggestion.html
+                        echo "<h2>SmartStream Suggestion</h2>" >> artifacts/suggestion.html
+                        echo "<div style='text-align: left; max-width: 600px; margin: auto;'><pre>" >> artifacts/suggestion.html
+                        cat suggestion.txt >> artifacts/suggestion.html
+                        echo "</pre></div></body></html>" >> artifacts/suggestion.html
+                    '''
+                }
             }
         }
     }
@@ -90,4 +98,3 @@ pipeline {
         }
     }
 }
-
