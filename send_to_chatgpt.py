@@ -1,6 +1,6 @@
 import sys
 import os
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from rich.console import Console
@@ -19,10 +19,6 @@ slack_channel = os.getenv("SLACK_CHANNEL", "#all-hackathon2025")
 if not api_key:
     console.print("[bold red]❌ Missing OPENAI_API_KEY environment variable[/]")
     sys.exit(1)
-
-if not slack_token:
-    console.print("[bold yellow]⚠️ SLACK_BOT_TOKEN not set. Slack notifications will be skipped.[/]")
-    slack_token = None
 
 client = OpenAI(api_key=api_key)
 
@@ -46,16 +42,21 @@ LOG:
 
 def get_suggestion(log_text):
     prompt = PROMPT_TEMPLATE.format(log_content=log_text)
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=400,
-        temperature=0.4
-    )
-    return response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            temperature=0.4
+        )
+        return response.choices[0].message.content.strip()
+    except OpenAIError as e:
+        console.print(f"[bold red]❌ OpenAI API error:[/] {str(e)}")
+        return ">>> Suggestion: We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com"
 
 def notify_slack(message, log_snippet=None):
     if not slack_token:
+        console.print("[yellow]⚠️ SLACK_BOT_TOKEN not set. Skipping Slack notification.[/]")
         return
     slack = WebClient(token=slack_token)
     try:
@@ -99,7 +100,7 @@ if __name__ == "__main__":
 
     suggestion = get_suggestion(log_data)
 
-    # Console output: pretty and colorful for Jenkins logs and local dev
+    # Console output: pretty and colorful
     console.rule("[bold blue]🤖 SmartStream Build Analysis")
     console.print(
         Panel.fit(
@@ -110,8 +111,13 @@ if __name__ == "__main__":
         )
     )
 
-    # Slack notification with first 500 chars of log as snippet
+    # Slack notification with first 500 chars of log
     notify_slack(suggestion, log_snippet=log_data[:500])
 
-    # Also print suggestion plain text for Jenkinsfile to capture in file if needed
+    # Write plain text for Jenkins file archiving
+    with open("suggestion.txt", "w", encoding="utf-8") as f:
+        f.write(suggestion)
+
+    # Print plain text for Jenkins logs
     print(suggestion)
+
