@@ -119,24 +119,13 @@ if __name__ == "__main__":
     # Slack notification with first 500 chars of log
     notify_slack(suggestion, log_snippet=log_data[:500])
 
-# Write plain suggestion only (plain text)
-with open("suggestion.txt", "w", encoding="utf-8") as f:
-    f.write(suggestion)
+    # Write plain suggestion only (plain text)
+    with open("suggestion.txt", "w", encoding="utf-8") as f:
+        f.write(suggestion)
 
-# Write entire rich-formatted output to file (as UTF-8 safe HTML-style)
-with open("chatgpt_output.txt", "w", encoding="utf-8") as f:
-    f.write("🤖 SmartStream Build Analysis\n\n")
-    f.write(suggestion)
-
-# Print to console (rich/pretty)
-console.rule("[bold blue]🤖 SmartStream Build Analysis")
-console.print(
-    Panel.fit(
-        Markdown(suggestion),
-        title="💡 [bold green]Suggestion by SmartStreamBot[/]",
-        border_style="cyan",
-        padding=(1, 2)
-    )
-)
+    # Write entire plain output to another file
+    with open("chatgpt_output.txt", "w", encoding="utf-8") as f:
+        f.write("🤖 SmartStream Build Analysis\n\n")
+        f.write(suggestion)
 
 
