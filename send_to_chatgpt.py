@@ -76,11 +76,16 @@ def notify_slack(message, log_snippet=None):
                 "text": {"type": "mrkdwn", "text": f"```{log_snippet}```"}
             })
 
-        slack.chat_postMessage(channel=slack_channel, blocks=blocks)
+        slack.chat_postMessage(
+            channel=slack_channel,
+            blocks=blocks,
+            text="SmartStream Suggestion Notification"
+        )
         console.print(f"[green]✅ Sent Slack alert to [bold]{slack_channel}[/][/]")
 
     except SlackApiError as e:
-        console.print(f"[red]Slack API error:[/] {e.response['error']}")
+        error_message = e.response.get("error", str(e))
+        console.print(f"[red]Slack API error:[/] {error_message}")
 
 # ───────────────────────────────
 # Main Execution
@@ -95,7 +100,7 @@ if __name__ == "__main__":
         console.print(f"[red]Log file not found:[/] {log_path}")
         sys.exit(1)
 
-    with open(log_path, 'r', encoding='utf-8') as f:
+    with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
         log_data = f.read()
 
     suggestion = get_suggestion(log_data)
