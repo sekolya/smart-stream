@@ -9,13 +9,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-# Force UTF-8 encoding for stdout/stderr to avoid mojibake
+# Ensure UTF-8 encoding
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 console = Console()
 
-# Load Environment Variables
+# Load env vars
 api_key = os.getenv("OPENAI_API_KEY")
 slack_token = os.getenv("SLACK_BOT_TOKEN")
 slack_channel = os.getenv("SLACK_CHANNEL", "#all-hackathon2025")
@@ -26,23 +26,24 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
-# Emoji stripping function
+# Regex to strip emojis from AI output
 def strip_emoji(text):
     emoji_pattern = re.compile(
         "[" 
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F680-\U0001F6FF"  # transport & map symbols
-        "\U0001F700-\U0001F77F"  # alchemical symbols
-        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
-        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
-        "\U0001FA00-\U0001FA6F"  # Chess Symbols
-        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
-        "\U00002702-\U000027B0"  # Dingbats
-        "\U000024C2-\U0001F251"  # Enclosed characters
+        "\U0001F600-\U0001F64F"
+        "\U0001F300-\U0001F5FF"
+        "\U0001F680-\U0001F6FF"
+        "\U0001F700-\U0001F77F"
+        "\U0001F780-\U0001F7FF"
+        "\U0001F900-\U0001F9FF"
+        "\U0001FA00-\U0001FA6F"
+        "\U0001FA70-\U0001FAFF"
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
         "]+", flags=re.UNICODE)
     return emoji_pattern.sub('', text)
 
+# Prompt template
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
 Below is a Jenkins build log. Analyze the error and suggest 2–3 possible solutions in a numbered list.
@@ -115,7 +116,6 @@ if __name__ == "__main__":
         log_data = f.read()
 
     suggestion = get_suggestion(log_data)
-
     clean_suggestion = strip_emoji(suggestion)
 
     console.rule("SmartStream Build Analysis")
@@ -126,8 +126,17 @@ if __name__ == "__main__":
         padding=(1, 2)
     ))
 
+    # Save full and filtered output
+    with open("chatgpt_output.txt", "w", encoding="utf-8") as f:
+        f.write(clean_suggestion)
+
     fallback_trigger = "We couldn't automatically identify this issue"
+    filtered = "\n".join([line for line in clean_suggestion.splitlines() if line.startswith(">>> Suggestion") or line.startswith("- ")])
+
+    with open("suggestion.txt", "w", encoding="utf-8") as f:
+        f.write(filtered if filtered else f">>> Suggestion: {fallback_trigger}")
 
     if fallback_trigger in suggestion:
         log_snippet = log_data[:400]
         notify_slack("AI could not resolve Jenkins build error", log_snippet)
+
