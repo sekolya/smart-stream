@@ -29,30 +29,39 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                sh "terraform apply -auto-approve -var='deployer_public_key=${DEPLOYER_PUBLIC_KEY}'"
+                sh "terraform apply -auto-approve -var=\"deployer_public_key=${DEPLOYER_PUBLIC_KEY}\""
             }
         }
 
         stage('AI Suggestion (ChatGPT)') {
             steps {
-                withCredentials([string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY')]) {
+                withCredentials([
+                    string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY'),
+                    string(credentialsId: 'slack-bot-token', variable: 'SLACK_BOT_TOKEN'),
+                    string(credentialsId: 'slack-channel', variable: 'SLACK_CHANNEL') // This should be "#all-hackathon2025"
+                ]) {
                     sh '''
+                        echo "[INFO] 🧠 Running SmartStream AI Suggestion..."
+
                         python3 -m venv sm-env
                         . sm-env/bin/activate
-                        pip install openai
+                        pip install --upgrade pip
+                        pip install openai slack_sdk rich
 
-                        # Fetch Jenkins log
-                        curl -s http://3.20.253.231:8080/job/${JOB_NAME}/${BUILD_NUMBER}/consoleText > build.log
+                        echo "[INFO] 📥 Fetching Jenkins console logs..."
+                        curl -s http://localhost:8080/job/${JOB_NAME}/${BUILD_NUMBER}/consoleText > build.log
 
-                        # Run AI suggestion
                         export OPENAI_API_KEY=$OPENAI_API_KEY
-                        python send_to_chatgpt.py build.log > chatgpt_output.txt
+                        export SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN
+                        export SLACK_CHANNEL=$SLACK_CHANNEL
 
-                        # Parse output or fallback
+                        echo "[INFO] 🤖 Running ChatGPT AI analysis..."
+                        python send_to_chatgpt.py build.log > chatgpt_output.txt || true
+
                         grep ">>> Suggestion:" chatgpt_output.txt > suggestion.txt || \
                         echo ">>> Suggestion: We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com" > suggestion.txt
 
-                        # Create report
+                        echo "[INFO] 📦 Preparing HTML report..."
                         mkdir -p artifacts
                         cp chatgpt_output.txt artifacts/
                         cp suggestion.txt artifacts/
@@ -72,7 +81,10 @@ pipeline {
 
     post {
         always {
+            echo "[INFO] 📁 Archiving AI suggestion artifacts..."
             archiveArtifacts artifacts: 'artifacts/*', fingerprint: true
+
+            echo "[INFO] 🌐 Publishing HTML report..."
             publishHTML(target: [
                 allowMissing: false,
                 alwaysLinkToLastBuild: true,
@@ -84,6 +96,7 @@ pipeline {
         }
 
         failure {
+            echo "[INFO] ✉️ Sending failure notification with AI suggestion..."
             script {
                 def suggestion = readFile('artifacts/suggestion.txt').trim()
                 emailext(
@@ -100,4 +113,3 @@ pipeline {
         }
     }
 }
-
