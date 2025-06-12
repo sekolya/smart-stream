@@ -15,7 +15,7 @@ console = Console()
 # ─────────────────────────────────────────────────────────────────────────────
 api_key = os.getenv("OPENAI_API_KEY")
 slack_token = os.getenv("SLACK_BOT_TOKEN")
-slack_channel = os.getenv("SLACK_CHANNEL", "#devops-alerts")
+slack_channel = os.getenv("SmartStreamBot", "#devops-alerts")
 
 if not api_key:
     console.print("[bold red]❌ Missing OPENAI_API_KEY environment variable[/]")
