@@ -6,7 +6,6 @@ from slack_sdk.errors import SlackApiError
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.syntax import Syntax
 
 console = Console()
 
@@ -20,6 +19,10 @@ slack_channel = os.getenv("SLACK_CHANNEL", "#all-hackathon2025")
 if not api_key:
     console.print("[bold red]❌ Missing OPENAI_API_KEY environment variable[/]")
     sys.exit(1)
+
+if not slack_token:
+    console.print("[bold yellow]⚠️ SLACK_BOT_TOKEN not set. Slack notifications will be skipped.[/]")
+    slack_token = None
 
 client = OpenAI(api_key=api_key)
 
@@ -53,15 +56,14 @@ def get_suggestion(log_text):
 
 def notify_slack(message, log_snippet=None):
     if not slack_token:
-        console.print("[yellow]⚠️ Slack alert skipped: SLACK_BOT_TOKEN not set.[/]")
         return
 
-    client = WebClient(token=slack_token)
+    slack = WebClient(token=slack_token)
     try:
         blocks = [
             {
                 "type": "header",
-                "text": {"type": "plain_text", "text": ":rotating_light: SmartStream Alert"}
+                "text": {"type": "plain_text", "text": ":robot_face: SmartStream Suggestion"}
             },
             {
                 "type": "section",
@@ -72,18 +74,17 @@ def notify_slack(message, log_snippet=None):
         if log_snippet:
             blocks.append({
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": "*Partial Log Snippet:*"}
-            })
-            blocks.append({
-                "type": "section",
                 "text": {"type": "mrkdwn", "text": f"```{log_snippet}```"}
             })
 
-        client.chat_postMessage(channel=slack_channel, blocks=blocks)
-        console.print(f"[green]✅ Slack alert sent to [bold]{slack_channel}[/].[/]")
+        slack.chat_postMessage(channel=slack_channel, blocks=blocks)
+        console.print(f"[green]✅ Sent Slack alert to [bold]{slack_channel}[/][/]")
     except SlackApiError as e:
-        console.print(f"[bold red]Slack API error:[/] {e.response['error']}")
+        console.print(f"[red]Slack API error:[/] {e.response['error']}")
 
+# ─────────────────────────────────────────────────────
+# 🚀 Main Execution
+# ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         console.print("[bold red]Usage:[/] python send_to_chatgpt.py <log_file>")
@@ -99,7 +100,7 @@ if __name__ == "__main__":
 
     suggestion = get_suggestion(log_data)
 
-    # 💬 Colorful console output
+    # 💬 Console output
     console.rule("[bold blue]:robot: SmartStream Build Analysis")
     console.print(Panel.fit(
         Markdown(suggestion),
@@ -108,10 +109,8 @@ if __name__ == "__main__":
         padding=(1, 2)
     ))
 
-    fallback_trigger = "We couldn't automatically identify this issue"
-
-    if fallback_trigger in suggestion:
-        log_snippet = log_data[:400]
-        notify_slack("AI could not resolve Jenkins build error", log_snippet)
+    # 🔔 Send Slack message regardless of fallback
+    log_snippet = log_data[:500]
+    notify_slack(suggestion, log_snippet=log_snippet)
 
 
