@@ -9,9 +9,9 @@ from rich.markdown import Markdown
 
 console = Console()
 
-# ─────────────────────────────────────────────────────
-# 🔐 Load Environment Variables
-# ─────────────────────────────────────────────────────
+# ───────────────────────────────
+# Load Environment Variables
+# ───────────────────────────────
 api_key = os.getenv("OPENAI_API_KEY")
 slack_token = os.getenv("SLACK_BOT_TOKEN")
 slack_channel = os.getenv("SLACK_CHANNEL", "#all-hackathon2025")
@@ -26,9 +26,9 @@ if not slack_token:
 
 client = OpenAI(api_key=api_key)
 
-# ─────────────────────────────────────────────────────
-# 💬 Prompt Template
-# ─────────────────────────────────────────────────────
+# ───────────────────────────────
+# Prompt Template
+# ───────────────────────────────
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
 Below is a Jenkins build log. Analyze the error and suggest 2–3 possible solutions in a numbered list.
@@ -57,20 +57,18 @@ def get_suggestion(log_text):
 def notify_slack(message, log_snippet=None):
     if not slack_token:
         return
-
     slack = WebClient(token=slack_token)
     try:
         blocks = [
             {
                 "type": "header",
-                "text": {"type": "plain_text", "text": ":robot_face: SmartStream Suggestion"}
+                "text": {"type": "plain_text", "text": "🤖 SmartStream Suggestion"}
             },
             {
                 "type": "section",
                 "text": {"type": "mrkdwn", "text": f"*{message}*\nContact: `devops@example.com`"}
             }
         ]
-
         if log_snippet:
             blocks.append({
                 "type": "section",
@@ -79,12 +77,13 @@ def notify_slack(message, log_snippet=None):
 
         slack.chat_postMessage(channel=slack_channel, blocks=blocks)
         console.print(f"[green]✅ Sent Slack alert to [bold]{slack_channel}[/][/]")
+
     except SlackApiError as e:
         console.print(f"[red]Slack API error:[/] {e.response['error']}")
 
-# ─────────────────────────────────────────────────────
-# 🚀 Main Execution
-# ─────────────────────────────────────────────────────
+# ───────────────────────────────
+# Main Execution
+# ───────────────────────────────
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         console.print("[bold red]Usage:[/] python send_to_chatgpt.py <log_file>")
@@ -95,22 +94,24 @@ if __name__ == "__main__":
         console.print(f"[red]Log file not found:[/] {log_path}")
         sys.exit(1)
 
-    with open(log_path, 'r') as f:
+    with open(log_path, 'r', encoding='utf-8') as f:
         log_data = f.read()
 
     suggestion = get_suggestion(log_data)
 
-    # 💬 Console output
-    console.rule("[bold blue]:robot: SmartStream Build Analysis")
-    console.print(Panel.fit(
-        Markdown(suggestion),
-        title=":bulb: [bold green]Suggestion by ChatGPT[/]",
-        border_style="cyan",
-        padding=(1, 2)
-    ))
+    # Console output: pretty and colorful for Jenkins logs and local dev
+    console.rule("[bold blue]🤖 SmartStream Build Analysis")
+    console.print(
+        Panel.fit(
+            Markdown(suggestion),
+            title="💡 [bold green]Suggestion by SmartStreamBot[/]",
+            border_style="cyan",
+            padding=(1, 2)
+        )
+    )
 
-    # 🔔 Send Slack message regardless of fallback
-    log_snippet = log_data[:500]
-    notify_slack(suggestion, log_snippet=log_snippet)
+    # Slack notification with first 500 chars of log as snippet
+    notify_slack(suggestion, log_snippet=log_data[:500])
 
-
+    # Also print suggestion plain text for Jenkinsfile to capture in file if needed
+    print(suggestion)
