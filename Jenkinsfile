@@ -38,11 +38,12 @@ pipeline {
                 withCredentials([
                     string(credentialsId: 'openai-api-key', variable: 'OPENAI_API_KEY'),
                     string(credentialsId: 'slack-bot-token', variable: 'SLACK_BOT_TOKEN'),
-                    string(credentialsId: 'slack-channel', variable: 'SLACK_CHANNEL') // This should be "#all-hackathon2025"
+                    string(credentialsId: 'slack-channel', variable: 'SLACK_CHANNEL')
                 ]) {
                     sh '''
                         echo "[INFO] 🧠 Running SmartStream AI Suggestion..."
 
+                        rm -rf sm-env
                         python3 -m venv sm-env
                         . sm-env/bin/activate
                         pip install --upgrade pip
@@ -56,7 +57,7 @@ pipeline {
                         export SLACK_CHANNEL=$SLACK_CHANNEL
 
                         echo "[INFO] 🤖 Running ChatGPT AI analysis..."
-                        python send_to_chatgpt.py build.log > chatgpt_output.txt || true
+                        python send_to_chatgpt.py build.log || true
 
                         grep ">>> Suggestion:" chatgpt_output.txt > suggestion.txt || \
                         echo ">>> Suggestion: We couldn't automatically identify this issue. Please contact your DevOps team: devops@example.com" > suggestion.txt
@@ -67,12 +68,20 @@ pipeline {
                         cp suggestion.txt artifacts/
                         cp resources/robot.png artifacts/
 
-                        echo "<html><body style='font-family: Arial; text-align: center;'>" > artifacts/suggestion.html
-                        echo "<img src='robot.png' alt='SmartStream Bot' style='height: 40px; margin-bottom: 20px;'/>" >> artifacts/suggestion.html
-                        echo "<h2>SmartStream Suggestion</h2>" >> artifacts/suggestion.html
-                        echo "<div style='text-align: left; max-width: 600px; margin: auto;'><pre>" >> artifacts/suggestion.html
-                        cat suggestion.txt >> artifacts/suggestion.html
-                        echo "</pre></div></body></html>" >> artifacts/suggestion.html
+                        cat <<EOF > artifacts/suggestion.html
+<html>
+  <head>
+    <meta charset="UTF-8">
+  </head>
+  <body style='font-family: Arial; text-align: center;'>
+    <img src='robot.png' alt='SmartStream Bot' style='height: 40px; margin-bottom: 20px;'/>
+    <h2>SmartStream Suggestion</h2>
+    <div style='text-align: left; max-width: 600px; margin: auto;'><pre>
+$(cat suggestion.txt)
+    </pre></div>
+  </body>
+</html>
+EOF
                     '''
                 }
             }
