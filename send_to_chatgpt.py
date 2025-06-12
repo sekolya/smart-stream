@@ -1,16 +1,25 @@
+
 import sys
 import os
 import openai
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from rich.console import Console
+from rich.panel import Panel
 
-# Load API key from environment
+console = Console()
+
+# Load API Key from Environment
 api_key = os.getenv("OPENAI_API_KEY")
+slack_token = os.getenv("SLACK_BOT_TOKEN")
+slack_channel = os.getenv("SLACK_CHANNEL", "#devops-alerts")
+
 if not api_key:
-    print("Missing OPENAI_API_KEY environment variable")
+    console.print("[red]Missing OPENAI_API_KEY[/]")
     sys.exit(1)
 
 client = openai.OpenAI(api_key=api_key)
 
-# Prompt template with fallback instruction
 PROMPT_TEMPLATE = """
 You are an AI assistant helping developers debug CI/CD build failures.
 
@@ -32,23 +41,46 @@ def get_suggestion(log_text):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=300,
+        max_tokens=400,
         temperature=0.4
     )
     return response.choices[0].message.content.strip()
 
+def notify_slack(message):
+    if not slack_token:
+        console.print("[yellow]Slack alert skipped: SLACK_BOT_TOKEN not set.[/]")
+        return
+    client = WebClient(token=slack_token)
+    try:
+        client.chat_postMessage(channel=slack_channel, text=message)
+        console.print("[green]Slack alert sent.[/]")
+    except SlackApiError as e:
+        console.print(f"[red]Slack error:[/] {e.response['error']}")
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python send_to_chatgpt.py <log_file>")
+        console.print("Usage: python send_to_chatgpt.py <log_file>")
         sys.exit(1)
 
     log_path = sys.argv[1]
     if not os.path.isfile(log_path):
-        print(f"Log file not found: {log_path}")
+        console.print(f"[red]Log file not found:[/] {log_path}")
         sys.exit(1)
 
     with open(log_path, 'r') as f:
         log_data = f.read()
 
     suggestion = get_suggestion(log_data)
-    print(suggestion)
+
+    # Print nicely in terminal
+    console.print(Panel.fit(suggestion, title="💡 SmartStream Suggestion"))
+
+    # Send Slack alert if fallback response detected
+    if "We couldn't automatically identify this issue" in suggestion:
+        slack_message = f"""
+🚨 *SmartStream Alert*:
+Jenkins build failed and no specific fix was found by the AI.
+
+Please investigate manually.
+
+🧠 GPT Response:
